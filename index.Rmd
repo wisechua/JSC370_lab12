@@ -10,16 +10,115 @@ output:
 This is my JSC370 Final Project website.
 
 
-```{r setup, include=FALSE}
+```{r setup, echo=FALSE, message = FALSE}
 knitr::opts_chunk$set(
   warning = FALSE,
   message = FALSE,
   eval = TRUE,
-  echo = TRUE,
+  echo = FALSE,
   cache = FALSE,
-  include = TRUE,
-  fig.width = 7, 
-  fig.align = 'center',
-  fig.asp = 0.618,
-  out.width = "700px")
+  include = TRUE)
+library(data.table)
+library(tidyverse)
+library(plotly)
+library(knitr)
+library(widgetframe)
 ```
+
+
+```{r}
+cv_states_readin <- 
+  data.table::fread("https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv")
+
+
+state_pops <- data.table::fread("https://raw.githubusercontent.com/COVID19Tracking/associated-data/master/us_census_data/us_census_2018_population_estimates_states.csv")
+
+state_pops$abb <- state_pops$state
+state_pops$state <- state_pops$state_name
+state_pops$state_name <- NULL
+
+cv_states <- merge(cv_states_readin, state_pops, by = "state")
+
+cv_states$date <- as.Date(cv_states$date, format="%Y-%m-%d")
+
+
+state_list <- unique(cv_states$state)
+cv_states$state <- factor(cv_states$state, levels = state_list)
+abb_list <- unique(cv_states$abb)
+cv_states$abb <- factor(cv_states$abb, levels = abb_list)
+
+
+cv_states = cv_states[order(cv_states$state, cv_states$date),]
+
+cv_states <- cv_states |>
+  mutate(
+    new_cases = c(-999999, diff(cases)),
+    new_deaths = c(-999999, diff(deaths))
+  ) |>
+  mutate(
+    new_cases = ifelse(new_cases == -999999, cases, new_cases),
+    new_deaths = ifelse(new_deaths == -999999, deaths, new_deaths)
+  )
+
+cv_states <- cv_states |>
+  dplyr::filter(date >= "2022-10-01")
+
+cv_states <- cv_states |>
+  mutate(
+    new_cases = ifelse(new_cases > 0, new_cases, 0),
+    new_deaths = ifelse(new_deaths > 0, new_deaths, 0)
+  )
+cv_states <- cv_states |>
+  mutate(
+    per100k = round(cases / population * 1e5, digits = 1),
+    newper100k = round(new_cases / population * 1e5, digits = 1),
+    deathsper100k = round(deaths / population * 1e5, digits = 1),
+    newdeathsper100k = round(new_deaths / population * 1e5, digits = 1),
+  )
+max_date <- max(cv_states$date)
+cv_states_today <- cv_states |>
+  dplyr::filter(date == max_date)
+```
+## Showcasing plots {.tabset}
+
+### Figure 1
+```{r}
+plot_ly(
+  cv_states_today,
+  x = ~ log(pop_density),
+  y = ~ cases,
+  color = ~ state,
+  size = ~ population,
+  type = "scatter",
+  sizes = c(5, 100),
+  marker = list(
+    sizemode = "area",
+    opacity = .8
+    ),
+  hoverinfo = "text",
+  hovermode = "compare",
+  text = ~ paste0(
+    state, "\n",
+    " Cases per 100k: ", per100k, "\n",
+    " Death per 100k: ", deathsper100k, "\n",
+    " Population density: ", round(pop_density, 1), "per sq miles"
+  )
+ )
+```
+
+### Figure 2
+```{r}
+cv_states |>
+  filter(state == "Florida") |>
+  plot_ly(
+  ) |>
+  add_lines(
+    x = ~ date,
+    y = ~ new_deaths) |>
+  add_lines(
+    x = ~ date,
+    y = ~ new_cases
+  )
+```
+
+{-}
