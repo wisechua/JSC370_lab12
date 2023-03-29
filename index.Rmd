@@ -8,3 +8,18 @@ output:
 ---
 
 This is my JSC370 Final Project website.
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  warning = FALSE,
+  message = FALSE,
+  eval = TRUE,
+  echo = TRUE,
+  cache = FALSE,
+  include = TRUE,
+  fig.width = 7, 
+  fig.align = 'center',
+  fig.asp = 0.618,
+  out.width = "700px")
+```
